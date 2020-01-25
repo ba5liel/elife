@@ -1,0 +1,432 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Elife</title>
+  <script language="javascript">
+      //Elife
+      /* grid system
+       * critters
+       * vector based*/
+    var Color = {
+      wall: "#292F33",
+      plantEaters: "#FBBC05",
+      predator: "#EA4335",
+      plant: "#34A853"
+    };
+    function Vector(x,y){
+      this.x = x;
+      this.y = y;
+    }
+    Vector.prototype.plus = function(v2){
+      return new Vector(this.x+v2.x, this.y+v2.y);
+    }
+    // GRID CONSTRUCToR
+    function Grid(width, height){
+      this.space = new Array(width*height);
+      this.width = width;
+      this.height= height;
+    }
+    Grid.prototype.isInside = function(value){
+      return value.x >= 0 && value.x < this.width &&
+             value.y >= 0 && value.y < this.height;
+    }
+    Grid.prototype.get = function(value){
+      return this.space[value.x+value.y*this.width];
+    }
+    Grid.prototype.set = function(vector, value){
+      this.space[vector.x+vector.y*this.width] = value;
+    }
+    Grid.prototype.toVector = function(vector){
+      for(var y =0; y<this.height; y++){
+        if((this.width + (y*this.width))-vector > 0){
+          return y;
+          break;
+        }
+      }
+    };
+
+ /* Paint a picture
+    var c = [' ','o','#'];
+    var cr;
+    var cr2;
+    for(var i = 0; i < grid.height; i++)
+    { cr = Math.round(Math.random()*100)%3;
+      grid.set(new Vector(0,i),c[cr]);
+      grid.get(new Vector(0,i));
+      for(var j = 1; j < grid.width; j++)
+      {
+        cr2 = Math.round(Math.random()*100)%3;
+        grid.set(new Vector(j,i),c[cr2]);
+        grid.get(new Vector(j,i));
+      }
+      document.write("<br>");
+    }
+     */
+     var plan =
+     ["###########################################################" ,
+			"# o     #     #     o      #####    ###       # ***   $  ##" ,
+			"#            $            ##    o  *#*#    $    o       # #",
+			"#*          ##*##          #        $         ###   **  ###",
+			"##**        #* *#   ##     *      oo        $       * o   #",
+			"###            ##  **#     ###              **     ###    #",
+			"#           ###      #                                    #",
+			"#   ####                   ###       ooo                  #",
+			"#   ##   $    o           *###               #####    ooo##",
+			"# o  #           o     ###                $  o       ### *#",
+			"#*** #                   **#**     ####    o#*            #",
+      "#           ###      #                                    #",
+			"#   ####                            ##oo                  #",
+			"#   ##   $    o           *###               #####    ooo##",
+			"# o  #           o     ###                $  o    *##### *#",
+			"#  * #                     #**     ####    o#*            #",
+      "#      #     #     o      ####      ###       # ***    $ ##",
+			"#            $            ##    o  *#*#    $    o       # #",
+			"#*          ##*##          #        $         ###   **  ###",
+			"##**        #* *#   ##     *      oo        $        *    #",
+			"###*     o     ##  **#     ###                 *   ###    #",
+			"###########################################################"];
+
+     var directions = {
+          "n": new Vector ( 0, -1) ,
+          "ne": new Vector ( 1, -1) ,
+          "e": new Vector ( 1, 0) ,
+          "se": new Vector ( 1, 1) ,
+          "s": new Vector ( 0, 1) ,
+          "sw": new Vector (-1, 1) ,
+          "w": new Vector (-1, 0) ,
+          "nw": new Vector (-1, -1)
+        };
+
+     var directionNames = "n ne e se s sw w nw".split(" ");
+
+     var legend1 = {
+        "#": Wall,
+        "o": BouncingCritter,
+        "?": WallFollower
+      };
+     var legend2 = {
+        "#": Wall,
+        "o": PlantEaters,
+        "*": Plant,
+        "$": Predator,
+      };
+     function randomElement(array){
+       return array[Math.floor(Math.random()*array.length)];
+     }
+     function elementFromChar(leg, ch){
+       if(ch == " ") return null;
+       var element = new leg[ch]();
+       element.orginChar = ch;
+       return element;
+     }
+     function charFromElement(element){
+         if(element == null) return " ";
+         return element.orginChar;
+       }
+    // CONSTRUCTORS ZONE
+
+
+     /*
+
+      * Critters construnctor
+
+      */
+    function BouncingCritter(){
+
+       this.direction = randomElement(directionNames);
+      }
+     BouncingCritter.prototype.act = function(view){
+       if(view.look(this.direction) != " ")
+       this.direction = view.find(" ") || "s";
+       return {type: "move", direction: this.direction};
+     };
+
+    /*
+
+      * WallFollwer
+
+    */
+    function dirPlus (dir , n) {
+      var index = directionNames.indexOf (dir);
+      return directionNames [( index + n + 8) % 8];
+    }
+
+    function WallFollower(){
+
+      this.dir = "s";
+      }
+    WallFollower.prototype.act = function (view) {
+        var start = this.dir;
+
+        if (view.look ( dirPlus( this.dir, -3)) != " ")
+        start = this.dir = dirPlus ( this.dir , -2);
+
+          while ( view.look ( this.dir) != " ") {
+            this.dir = dirPlus ( this.dir , 1);
+              if ( this.dir == start ) break ;
+          }
+          console.log(this.dir);
+          return { type : "move", direction : this.dir };
+      };
+     /*
+
+      * Wall construnctor
+
+      */
+     function Wall(){}
+     Wall.prototype.color = Color.wall;
+     /*
+
+      * World construnctor
+              The World
+      */
+    function World(map, legend){
+
+       var grid = new Grid(map[0].length, map.length);
+       this.grid = grid;
+       this.legend = legend;
+       map.forEach(function(line, y){
+         for(var x=0; x < line.length; x++)
+         {
+           grid.set(new Vector(x, y), elementFromChar(this.legend, line[x]));
+         }
+       }, this);
+
+     }
+      World.prototype.toString = function(){
+        var output = "";
+        for(var y = 0; y < this.grid.height; y++)
+        {
+          for(var x = 0; x < this.grid.width; x++)
+          {
+            var element = this.grid.get(new Vector(x,y));
+            output+= (element != null) ? "<span style='color: "+element.color+"'>"+charFromElement(element)+"</span>":charFromElement(element);
+          }
+           output += "<br>";
+        }
+        return output;
+      }
+     World.prototype.turn = function(){
+       var acted = [];
+       this.grid.space.forEach(function(critter, vector){
+         if(critter != null && critter.act && acted.indexOf(critter)==-1){
+           acted.push(critter);
+           var y = this.grid.toVector(vector);
+           var x = vector - (y*this.grid.width);
+           this.letAct(critter, new Vector(x,y));
+         }
+       },this);
+     };
+    World.prototype.letAct = function(critter, vector){
+      var action = critter.act(new View(this, vector));
+      if(action && action.type == "move")
+      {
+        var dest = this.checkDestination(action,vector);
+        if(dest && this.grid.get(dest) == null){
+          this.grid.set(dest, critter);
+          this.grid.set(vector, null);
+        }
+      }
+    };
+    World.prototype.checkDestination = function(action, vector){
+      if(directions.hasOwnProperty(action.direction)){
+      var dest = vector.plus(directions[action.direction]);
+      if(this.grid.isInside(dest))
+      return dest;
+       }
+
+     };
+      /*
+
+       * View construnctor
+
+       */
+
+    function View(world, vector){
+
+        this.world = world;
+        this.vector = vector;
+        this.look = function(dir){
+          var target = this.vector.plus(directions[dir]);
+          if(this.world.grid.isInside(target))
+          return charFromElement(this.world.grid.get(target));
+          else return "#";
+        };
+
+      }
+      View.prototype.find = function(ch){
+        var found = this.findAll(ch);
+        if(found.length == 0) return null;
+        return randomElement(found);
+      }
+      View.prototype.findAll = function(ch){
+        var found = []
+        for( var dir in directions){
+          if(this.look(dir) == ch){
+            found.push(dir);
+          }
+        }
+
+        return found;
+      }
+
+//=========================================================================
+  // more life like sim (grow, move, eat, reproduce)
+//-------------------------------------------------------------------------
+  function MLLWorld(map, legend){
+    World.call(this,map,legend);
+  }
+  MLLWorld.prototype = Object.create(World.prototype);
+
+  var actionTypes = Object.create(null);
+
+  MLLWorld.prototype.letAct = function(critter, vector){
+    var action = critter.act(new View(this,vector));
+    var handled = action && action.type in actionTypes
+    && actionTypes[action.type].call(this, critter, vector, action);
+    if(!handled){
+    critter.energy -= 0.2;
+    if(critter.energy <= 0)
+    this.grid.set(vector, null);
+  }
+  };
+  // action types
+  actionTypes.grow = function(critter){
+    critter.energy += 1;
+    return true;
+  }
+  actionTypes.move = function(critter, vector, action){
+    var dest = this.checkDestination(action,vector);
+    if(dest == null || critter.energy <= 1
+        || this.grid.get(dest) != null)
+        return false;
+
+      critter.energy -= .7;
+      this.grid.set(dest, critter);
+      this.grid.set(vector, null);
+      return true;
+  };
+
+  actionTypes.eat = function(critter, vector, action){
+    var dest = this.checkDestination(action, vector);
+    var atDest = dest != null && this.grid.get(dest);
+    if(!atDest || atDest.energy == null)
+      return false
+    critter.energy += atDest.energy;
+    this.grid.set(dest, null);
+     return true;
+  }
+  actionTypes.reproduce = function(critter,vector,action){
+    var baby = elementFromChar(this.legend, critter.orginChar);
+    var dest = this.checkDestination(action, vector);
+
+    if( dest == null || critter.energy <= baby.energy
+      || this.grid.get(dest) != null)
+      return false;
+    critter.energy -= baby.energy;
+    this.grid.set(dest,baby);
+  }
+  actionTypes.mutate = function(critter, vector, action){
+    var dest =this.checkDestination(action, vector);
+    if( dest == null || this.grid.get(dest) != " ")
+    return false;
+    if(critter.orginChar == "$")
+      var mut = elementFromChar(this.legend, "o");
+    if(critter.orginChar == "o")
+      var mut = elementFromChar(this.legend, "*");
+    this.grid.set(vector, null);
+    this.grid.set(dest, mut);
+    return true;
+  };
+   // plant and other life forms
+
+   function Plant(){
+     this.energy = 3 + Math.round(Math.random() * 4);
+   }
+   Plant.prototype.act = function(view) {
+     var space = view.find(" ");
+     if(this.energy > 15 && space){
+      console.log("muta");
+      return {type: "mutate", direction: space};
+    }
+     if(this.energy > 10 && space)
+      return {type: "reproduce", direction: space};
+     if(this.energy < 20)
+      return {type: "grow"};
+
+   };
+   Plant.prototype.color = Color.plant;
+   //...........-------------------..............------------..
+
+   function PlantEaters(){
+     this.energy = 20;
+   }
+   PlantEaters.prototype.color = Color.plantEaters;
+   PlantEaters.prototype.act = function (view) {
+     var space = view.find(" ");
+     if(this.energy > 40 && space){
+      console.log("muta");
+     return {type: "mutate", direction: space};
+    }
+     if(this.energy > 30 && space)
+     return {type: "reproduce", direction: space};
+     var plant = view.find("*");
+     if(plant)
+     return {type:"eat", direction: plant};
+     if(space)
+     return {type:"move", direction: space};
+   };
+   function Predator(){
+     this.energy = 25;
+   }
+   Predator.prototype.color = Color.predator;
+   Predator.prototype.act = function(view){
+     var space = view.find(" ");
+
+     if(this.energy > 90 && space){
+      console.log("muta");
+     return {type: "mutate", direction: space};
+    }
+     if(this.energy > 80 && space)
+     return {type: "reproduce", direction: space};
+     var critter = view.find("o");
+     if(critter)
+     return {type: "eat", direction: critter};
+     if(space)
+     return {type: "move", direction: space};
+
+   }
+  </script>
+  <style>
+    body{
+      background-color: #0f1215;
+    }
+    pre{
+      color: #00B6F0;
+      font-size: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div >
+    <center>
+     <pre id="demo">
+        LOADing
+     </pre>
+   </center>
+  </div>
+</body>
+<script>
+      /*
+      USER INPUT AREA
+      */
+      var world = new MLLWorld(plan, legend2);
+      setInterval(shosw, 500);
+      document.getElementById('demo').innerHTML = world.toString();
+
+ function shosw(){
+        world.turn();
+        document.getElementById('demo').innerHTML = world.toString();
+}
+</script>
+</html>
